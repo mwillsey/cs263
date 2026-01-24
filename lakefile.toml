@@ -1,0 +1,15 @@
+name = "LoVe"
+defaultTargets = ["LoVe"]
+
+[[lean_lib]]
+name = "LoVe"
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "v4.26.0"
+
+[[require]]
+name = "autograder" 
+git = "https://github.com/robertylewis/lean4-autograder-main" 
+rev = "fbc7a9b86a35d5462008ca9c0a6e0ef414d58574"
