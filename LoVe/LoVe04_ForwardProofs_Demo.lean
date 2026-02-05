@@ -243,6 +243,56 @@ theorem prop_comp_tactical (a b c : Prop) (hab : a → b)
       hbc hb
     exact hc
 
+/- ## Dependent Types Examples -/
+
+-- no dependent types
+def half (n: ℕ): ℕ := n / 2
+
+def half_evens_option (n: ℕ): Option ℕ :=
+  if n % 2 = 0
+  then some (half n)
+  else none
+
+def half_evens_crash (n: ℕ): ℕ :=
+  if n % 2 = 0 then half n else panic! "odd number"
+
+-- dependent types!
+def half_evens_safe (n: ℕ) (_proof: n % 2 = 0): ℕ :=
+  half n
+
+#check half_evens_safe
+#check half_evens_safe 4
+
+-- no dependent types
+def silly (b: Bool): ℕ :=
+  if b then 1 else 0
+
+#check silly
+
+-- how to return "different types"?
+-- enum in Rust, data in OCaml/Haskell
+inductive SillyType
+  | Nat (n: ℕ)
+  | String (s: String)
+
+#print Bool
+
+def silly_enum (b: Bool): SillyType :=
+  match b with
+  | true => SillyType.Nat 1
+  | false => SillyType.String "a"
+
+-- dependent types!
+def silly_dependent (b: Bool): if b then ℕ else String :=
+  match b with
+  | true => (1: ℕ)
+  | false => "a"
+
+-- pattern matching interacts with dependent types!
+-- observe the expected types of the branches above.
+
+def really_silly_dependent (b: Bool): (if 1+1=2 then (if b then ℕ else String) else (List ℕ)) :=
+  silly_dependent b
 
 /- ## Dependent Types
 
@@ -271,15 +321,33 @@ Unless otherwise specified, a __dependent type__ means a type depending on a
 term. This is what we mean when we say that simple type theory does not support
 dependent types.
 
+Simple type theory:
+* `(fun x:σ ↦ e)  :  σ → τ`
+  - that function has type `σ → τ`
+    - total functions from `σ` to `τ`
+    - for _any_ value of type `σ`, we can compute a value of type `τ`.
+  - the `e`'s value (obviously) *may* depend on `x`'s value.
+  - the `e`'s type **may not** depend on `x`'s value.
+
+Dependent type theory:
+* `(fun x:σ ↦ e)  :  (x:σ) → τ[x]`
+  - the function type itself has become a binding form!!
+  - that function has type `(x:σ) → τ[x]`
+    - dependent functions from `x:σ` to `τ[x]`
+    - we need `x` to state the output type `τ[x]`!
+  - for _any_ value `x` of type `σ`, we can compute a value of type `τ[x]`.
+  - the output's value *may* depend on the input's value.
+  - the output's type *may* depend on the input's value.
+
 In summary, there are four cases for `fun x ↦ t` in the calculus of inductive
 constructions (cf. Barendregt's `λ`-cube):
 
 Body (`t`) |              | Argument (`x`) | Description
 ---------- | ------------ | -------------- | ----------------------------------
 A term     | depending on | a term         | Simply typed anonymous function
-A type     | depending on | a term         | Dependent type (strictly speaking)
 A term     | depending on | a type         | Polymorphic term
 A type     | depending on | a type         | Type constructor
+A type     | depending on | a term         | Dependent type (strictly speaking)
 
 Revised typing rules:
 
@@ -355,6 +423,11 @@ Proofs:
 * `fun x : σ ↦ H[x]` is a proof of `∀x : σ, Q[x]`, assuming `H[x]` is a proof
   of `Q[x]` for `x : σ`. -/
 
+-- theorem proving is just programming!
+-- these examples don't even need dependent types
+-- same "proof" in Rust https://play.rust-lang.org/?version=stable&mode=debug&edition=2024&gist=f3f8312a1a0cc047784e7b50eb6a6a7a
+  -- ignoring panics, infinite loops, and other non-terminating computations
+
 theorem And_swap_raw (a b : Prop) :
     a ∧ b → b ∧ a :=
   fun hab : a ∧ b ↦ And.intro (And.right hab) (And.left hab)
@@ -409,5 +482,7 @@ theorem reverse_reverse {α : Type} :
   | []      => by rfl
   | x :: xs =>
     by simp [reverse, reverse_append, reverse_reverse xs]
+
+#print reverse_append_tactical
 
 end LoVe
