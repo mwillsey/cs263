@@ -424,7 +424,9 @@ theorem map_ident {α : Type} (xs : List α) :
 
 theorem map_comp {α β γ : Type} (f : α → β) (g : β → γ)
       (xs : List α) :
-    map g (map f xs) = map (fun x ↦ g (f x)) xs :=
+
+    -- map g (map f xs) = map (fun x ↦ g (f x)) xs :=
+    map g (map f xs) = map (g ∘ f) xs :=
   by
     induction xs with
     | nil           => rfl
@@ -487,7 +489,8 @@ is true and one in which it is false. -/
 theorem min_add_add (l m n : ℕ) :
     min (m + l) (n + l) = min m n + l :=
   by
-    cases Classical.em (m ≤ n) with
+    have h := Classical.em (m ≤ n)
+    cases h with
     | inl h => simp [min, h]
     | inr h => simp [min, h]
 
@@ -530,6 +533,7 @@ theorem map_zip {α α' β β' : Type} (f : α → α')
   | x :: xs, y :: ys => by simp [zip, map, map_zip f g xs ys]
   | [],      _       => by rfl
   | _ :: _,  []      => by rfl
+  -- could do similar for length_zip
 
 
 /- ## Binary Trees
@@ -538,6 +542,8 @@ Inductive types with constructors taking several recursive arguments define
 tree-like objects. __Binary trees__ have nodes with at most two children. -/
 
 #print Tree
+
+#check Tree.node 1 (.node 2 .nil .nil) .nil
 
 /- The type `AExp` of arithmetic expressions was also an example of a tree data
 structure.
@@ -615,17 +621,28 @@ def listOfVec {α : Type} {n : ℕ} : Vec α n → List α
 def vecOfList {α : Type} : (xs : List α) → Vec α (List.length xs)
   | []      => Vec.nil
   | x :: xs => Vec.cons x (vecOfList xs)
+  -- I produced things of "different types" in each arm!
+
+-- simplest example
+def sillyproof (n: ℕ): n = n :=
+  -- Eq.refl n
+  match n with
+  | 0 => Eq.refl 0
+  | Nat.succ m => Eq.refl m.succ
+
+-- what match actually desugars to!
+#check Nat.rec
 
 theorem length_listOfVec {α : Type} (n : ℕ) (v : Vec α n):
   List.length (listOfVec v) = n :=
 
   -- match v with
   -- | Vec.nil      => by rfl
-  -- | Vec.cons a v => by simp [listOfVec, length_listOfVec _ v]
+  -- | Vec.cons a v2 => by simp [listOfVec, length_listOfVec _ v2]
 
   -- match n, v with
   -- | 0, Vec.nil      => by rfl
-  -- | m+1, Vec.cons a v => by simp [listOfVec, length_listOfVec _ v]
+  -- | m+1, Vec.cons a v2 => by simp [listOfVec, length_listOfVec _ v2]
 
   by
     induction v
