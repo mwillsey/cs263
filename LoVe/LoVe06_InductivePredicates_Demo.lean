@@ -353,6 +353,18 @@ theorem cases_Eq_example {α : Type} (l r : α) (h : l = r)
     cases h
     sorry
 
+theorem eq_trans {α : Type} {a b c : α} (hab : Eq a b) (hbc : Eq b c) : Eq a c :=
+  by
+    cases hab
+    cases hbc
+    apply Eq.refl
+
+theorem eq_trans_match {α : Type} {a b c : α} (hab : Eq a b) (hbc : Eq b c) : Eq a c :=
+  match hab with
+  | Eq.refl a =>
+    match hbc with
+    | Eq.refl a => Eq.refl a
+
 #check Classical.em
 #print Or
 
@@ -469,6 +481,23 @@ theorem Not_Sorted_17_13 :
     cases h with
     | two_or_more _ _ hlet hsorted => simp at hlet
 
+-- we should be able to automate this kind of reasoning...
+
+#print Decidable
+
+instance decideSorted (l: List ℕ): Decidable (Sorted l) :=
+  match l with
+  | [] => isTrue Sorted.nil
+  | [x] => isTrue (Sorted.single x)
+  | x :: y :: zs =>
+    if h : x ≤ y then
+      match decideSorted (y :: zs) with
+      | isTrue hsorted => isTrue (Sorted.two_or_more x y h hsorted)
+      | isFalse hsorted => isFalse (by intro; cases a; contradiction)
+    else
+      isFalse (by intro; cases a; contradiction)
+
+example: Sorted [7, 9, 9, 11] := by decide
 
 /- ### Palindromes -/
 
@@ -478,14 +507,12 @@ inductive Palindrome {α : Type} : List α → Prop where
   | sandwich (x : α) (xs : List α) (hxs : Palindrome xs) :
     Palindrome ([x] ++ xs ++ [x])
 
-/-
 -- fails
-def palindromeRec {α : Type} : List α → Bool
-  | []                 => true
-  | [_]                => true
-  | ([x] ++ xs ++ [x]) => palindromeRec xs
-  | _                  => false
--/
+-- def palindromeRec {α : Type} : List α → Bool
+--   | []                 => true
+--   | [_]                => true
+--   | ([x] ++ xs ++ [x]) => palindromeRec xs
+--   | _                  => false
 
 theorem Palindrome_aa {α : Type} (a : α) :
     Palindrome [a, a] :=
