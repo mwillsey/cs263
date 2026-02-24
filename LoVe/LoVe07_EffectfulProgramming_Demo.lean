@@ -376,6 +376,7 @@ def increasingly : List ℕ → Action ℕ (List ℕ)
           let ns' ← increasingly ns
           pure (n :: ns')
 
+#check increasingly [1, 2, 3, 2]
 #eval increasingly [1, 2, 3, 2] 0
 #eval increasingly [1, 2, 3, 2, 4, 5, 2] 0
 
@@ -422,6 +423,7 @@ leaving some unfinished subgoals to the user.
 We consider a generic effectful program `mmap` that iterates over a list and
 applies a function `f` to each element. -/
 
+-- gets the nth element in each inner list
 def nthsFine {α : Type} (xss : List (List α)) (n : ℕ) :
   List (Option α) :=
   List.map (fun xs ↦ nth xs n) xss

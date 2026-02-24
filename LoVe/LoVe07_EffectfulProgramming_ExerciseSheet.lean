@@ -61,6 +61,9 @@ instance Option.LawfulMonadWithOrelse :
         { rfl }
         { rfl }
     orelse_assoc :=
+      -- in this proof, you might need to explode a lot of cases
+      -- consider the tactic combinator `t1 <;> t2`, which runs
+      -- t1 and then runs t2 on all goals that t2 made
       sorry
     emp_bind     :=
       by
