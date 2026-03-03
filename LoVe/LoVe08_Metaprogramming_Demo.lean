@@ -225,6 +225,7 @@ def traceGoals (n: ℕ) : TacticM Unit :=
       let target ← getMainTarget
       logInfo m!"{target}"
 
+-- `elab`: we are converting syntax into a Lean expression
 elab "trace_goals" n:(num)? : tactic => do
   match n with
   | none   => traceGoals 1

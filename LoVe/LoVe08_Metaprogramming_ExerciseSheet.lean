@@ -41,6 +41,7 @@ conjunctions are gone. Define your tactic as a macro. -/
 #check repeat'
 
 -- enter your definition here
+macro "intro_and" : tactic => `(tactic| (fail "unimplemented!!"))
 
 theorem abcd_bd (a b c d : Prop) (h : a ∧ (b ∧ c) ∧ d) :
     b ∧ d :=
@@ -117,10 +118,15 @@ Hint: When iterating over the declarations in the local context, make sure to
 skip any declaration that is an implementation detail. -/
 
 partial def casesAnd : TacticM Unit :=
-  sorry
+  withMainContext do
+    let ctx ← getLCtx
+    for decl in ctx do
+      if decl.isImplementationDetail then
+        continue
+      failure -- start your implementation here!
 
-elab "cases_and" : tactic =>
-  casesAnd
+-- This tells the elaborator how to parse the tactic and what metaprogram to run
+elab "cases_and" : tactic => casesAnd
 
 theorem abcd_bd_again (a b c d : Prop) :
     a ∧ (b ∧ c) ∧ d → b ∧ d :=
@@ -179,28 +185,29 @@ We will implement a function that allows us to find theorems by constants
 appearing in their statements. So given a list of constant names, the function
 will list all theorems in which all these constants appear.
 
-2.1. Write a function that checks whether an expression contains a specific
-constant.
-
-Hints:
-
-* You can pattern-match on `e` and proceed recursively.
-
-* The "not" connective on `Bool` is called `not`, the "or" connective is called
-  `||`, the "and" connective is called `&&`, and equality is called `==`. -/
+This function checks whether an expression contains a specific
+constant. -/
 
 def constInExpr (name : Name) (e : Expr) : Bool :=
-  sorry
+  match e with
+    | .bvar _ | .fvar _ | .mvar _ | .sort _ | .lit _ => false
+    | .const declName _ => declName == name
+    | .app fn arg => constInExpr name fn || constInExpr name arg
+    | .lam _ ty body _ => constInExpr name ty || constInExpr name body
+    | .forallE _ ty body _ => constInExpr name ty || constInExpr name body
+    | .letE _ ty val body _ => constInExpr name ty || constInExpr name body || constInExpr name val
+    | .mdata _ e
+    | .proj _ _ e => constInExpr name e
 
-/- 2.2. Write a function that checks whether an expression contains **all**
+/- 2.1. Write a function that checks whether an expression contains **all**
 constants in a list.
 
-Hint: You can either proceed recursively or use `List.and` and `List.map`. -/
+Hint: You can either proceed recursively, use `List.all`, or use `List.and` and `List.map`. -/
 
 def constsInExpr (names : List Name) (e : Expr) : Bool :=
   sorry
 
-/- 2.3. Develop a tactic that uses `constsInExpr` to print the name of all
+/- 2.2. Develop a tactic that uses `constsInExpr` to print the name of all
 theorems that contain all constants `names` in their statement.
 
 This code should be similar to that of `proveDirect` in the demo file. With
