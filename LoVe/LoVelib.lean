@@ -331,6 +331,13 @@ def State.update (name : String) (val : ℕ) (s : State) : State :=
 macro s:term "[" name:term "↦" val:term "]" : term =>
   `(State.update $name $val $s)
 
+@[app_unexpander State.update]
+def unexpandStateUpdate : Lean.PrettyPrinter.Unexpander
+  | `($_ $name $val $s) => `($s[$name  ↦  $val])
+  | _ => throw ()
+
+#check State.update "a" 42 (fun _ ↦ 0) |>.update "b" 17 |>.update "a" 5
+
 @[simp] theorem update_apply (name : String) (val : ℕ) (s : State) :
     (s[name ↦ val]) name = val :=
   by
