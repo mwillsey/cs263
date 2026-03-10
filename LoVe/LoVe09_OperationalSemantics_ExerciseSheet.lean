@@ -66,33 +66,33 @@ inductive BigStep : (Stmt × State) → State → Prop
     BigStep (Stmt.choice Ss, s) t
   -- enter the missing `loop` rules here
 
-infixl:110 " ⟹ " => BigStep
+infixl:110 " ⇓ " => BigStep
 
 /- 1.2. Prove the following inversion rules, as we did in the lecture for the
 WHILE language. -/
 
 @[simp] theorem BigStep_assign_iff {x a s t} :
-    (Stmt.assign x a, s) ⟹ t ↔ t = s[x ↦ a s] :=
+    (Stmt.assign x a, s) ⇓ t ↔ t = s[x ↦ a s] :=
   sorry
 
 @[simp] theorem BigStep_assert {B s t} :
-    (Stmt.assert B, s) ⟹ t ↔ t = s ∧ B s :=
+    (Stmt.assert B, s) ⇓ t ↔ t = s ∧ B s :=
   sorry
 
 @[simp] theorem BigStep_seq_iff {S₁ S₂ s t} :
-    (Stmt.seq S₁ S₂, s) ⟹ t ↔ (∃u, (S₁, s) ⟹ u ∧ (S₂, u) ⟹ t) :=
+    (Stmt.seq S₁ S₂, s) ⇓ t ↔ (∃u, (S₁, s) ⇓ u ∧ (S₂, u) ⇓ t) :=
   sorry
 
 theorem BigStep_loop {S s u} :
-    (Stmt.loop S, s) ⟹ u ↔
-    (s = u ∨ (∃t, (S, s) ⟹ t ∧ (Stmt.loop S, t) ⟹ u)) :=
+    (Stmt.loop S, s) ⇓ u ↔
+    (s = u ∨ (∃t, (S, s) ⇓ t ∧ (Stmt.loop S, t) ⇓ u)) :=
   sorry
 
 /- This one is more difficult: -/
 
 @[simp] theorem BigStep_choice {Ss s t} :
-    (Stmt.choice Ss, s) ⟹ t ↔
-    (∃(i : ℕ) (hless : i < List.length Ss), (Ss[i]'hless, s) ⟹ t) :=
+    (Stmt.choice Ss, s) ⇓ t ↔
+    (∃(i : ℕ) (hless : i < List.length Ss), (Ss[i]'hless, s) ⇓ t) :=
   sorry
 
 end GCL
@@ -124,8 +124,9 @@ ways to define the `skip` case? -/
 
 For this question, we introduce the notion of program equivalence: `S₁ ~ S₂`. -/
 
+
 def BigStepEquiv (S₁ S₂ : Stmt) : Prop :=
-  ∀s t, (S₁, s) ⟹ t ↔ (S₂, s) ⟹ t
+  ∀s t, (S₁, s) ⇓ t ↔ (S₂, s) ⇓ t
 
 infix:50 (priority := high) " ~ " => BigStepEquiv
 
@@ -135,23 +136,32 @@ symmetric, and transitive. -/
 theorem BigStepEquiv.refl {S} :
     S ~ S :=
   fix s t : State
-  show (S, s) ⟹ t ↔ (S, s) ⟹ t from
+  show (S, s) ⇓ t ↔ (S, s) ⇓ t from
     by rfl
 
 theorem BigStepEquiv.symm {S₁ S₂} :
     S₁ ~ S₂ → S₂ ~ S₁ :=
   assume h : S₁ ~ S₂
   fix s t : State
-  show (S₂, s) ⟹ t ↔ (S₁, s) ⟹ t from
+  show (S₂, s) ⇓ t ↔ (S₁, s) ⇓ t from
     Iff.symm (h s t)
 
 theorem BigStepEquiv.trans {S₁ S₂ S₃} (h₁₂ : S₁ ~ S₂) (h₂₃ : S₂ ~ S₃) :
     S₁ ~ S₃ :=
   fix s t : State
-  show (S₁, s) ⟹ t ↔ (S₃, s) ⟹ t from
+  show (S₁, s) ⇓ t ↔ (S₃, s) ⇓ t from
     Iff.trans (h₁₂ s t) (h₂₃ s t)
 
-/- 2.1. Prove the following program equivalences. -/
+/- 2.1. Prove the following program equivalences.
+
+  Recall that we've already proved a bunch of inversion theorems about BigStep.
+  We registered them with the `@[simp]` attribute, so `simp` (and `aesop`!) know about these.
+  You may use both tactics here.
+  It will handle most of these proofs, but you may need a bit of manual case analysis for some.
+
+  Use `unfold BigStepEquiv` to unfold `~` in goal.
+-/
+
 
 theorem BigStepEquiv.skip_assign_id {x} :
     Stmt.assign x (fun s ↦ s x) ~ Stmt.skip :=
@@ -172,6 +182,8 @@ theorem BigStepEquiv.if_seq_while_skip {B S} :
 /- 2.2 (**optional**). Program equivalence can be used to replace subprograms
 by other subprograms with the same semantics. Prove the following so-called
 congruence rules that facilitate such replacement: -/
+
+-- use `unfold BigStepEquiv at * ` to unfold `~` in goal and hypotheses
 
 theorem BigStepEquiv.seq_congr {S₁ S₂ T₁ T₂} (hS : S₁ ~ S₂)
       (hT : T₁ ~ T₂) :
