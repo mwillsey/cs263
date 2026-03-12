@@ -176,11 +176,12 @@ nontermination (e.g., a diverging `while`) and nondeterminism (e.g.,
 multithreading). -/
 
 inductive BigStep : Stmt × State → State → Prop where
-  | skip (s) :
+  | skip (s: State) :
     BigStep (Stmt.skip, s) s
   | assign (x a s) :
     BigStep (Stmt.assign x a, s) (s[x ↦ a s])
-  | seq (S T s t u) (hS : BigStep (S, s) t)
+  | seq (S T s t u)
+      (hS : BigStep (S, s) t)
       (hT : BigStep (T, t) u) :
     BigStep (S; T, s) u
   | if_true (B S T s t) (hcond : B s)
@@ -296,7 +297,7 @@ theorem BigStep_while_Iff {B S s u} :
           apply BigStep.while_false
           assumption}
 
-@[simp] theorem BigStep_while_true_Iff {B S s u}
+ theorem BigStep_while_true_Iff {B S s u}
       (hcond : B s) :
     (Stmt.whileDo B S, s) ⇓ u ↔
     (∃t, (S, s) ⇓ t ∧ (Stmt.whileDo B S, t) ⇓ u) :=
@@ -318,7 +319,7 @@ theorem sillyLoop_from_1_BigStep :
     (sillyLoop, (fun _ ↦ 0)["x" ↦ 1]) ⇓ (fun _ ↦ 0) :=
   by
     rw [sillyLoop]
-    simp
+    simp [BigStep_while_true_Iff]
     -- -- without the inversion rules in simp
     -- apply BigStep.while_true
     -- { simp }
@@ -340,12 +341,13 @@ Equipped with a big-step semantics, we can
 * reason about **concrete programs**, proving theorems relating final states `t`
   with initial states `s`. -/
 
-theorem BigStep_deterministic {Ss l r} (hl : Ss ⇓ l)
+theorem BigStep_deterministic {Ss l r}
+      (hl : Ss ⇓ l)
       (hr : Ss ⇓ r) :
     l = r :=
   by
     induction hl generalizing r
-    all_goals (simp_all <;> grind)
+    all_goals (simp_all [BigStep_while_true_Iff] <;> grind)
     -- -- without the inversion rules in simp
     -- induction hl generalizing r with
     -- | skip s =>
@@ -389,7 +391,17 @@ theorem BigStep_terminates {S s} :
   sorry   -- unprovable
 -/
 
+def infiniteLoop : Stmt :=
+  Stmt.whileDo (fun _ ↦ True) Stmt.skip
 
+theorem infiniteLoop_no_BigStep (s t): ¬ (infiniteLoop, s) ⇓ t :=
+  by
+    generalize heq: (infiniteLoop, s) = Ss
+    intro h
+    induction h
+    any_goals (simp_all [infiniteLoop])
+    case while_true => aesop
+    case while_false => aesop
 
 /- ## Small-Step Semantics
 
@@ -449,6 +461,9 @@ inductive SmallStep : Stmt × State → Stmt × State → Prop where
     SmallStep (S; T, s) (S'; T, s')
   | seq_skip (T s) :
     SmallStep (Stmt.skip; T, s) (T, s)
+  -- redundant! but it's okay
+  | seq_skip2 (T s) :
+    SmallStep (T; Stmt.skip, s) (T, s)
   | if_true (B S T s) (hcond : B s) :
     SmallStep (Stmt.ifThenElse B S T, s) (S, s)
   | if_false (B S T s) (hcond : ¬ B s) :
@@ -470,40 +485,33 @@ theorem SmallStep_skip {S s t} :
     intro h
     cases h
 
+@[simp] theorem SmallStep_seq_skip {S s T t} :
+    (Stmt.skip; S, s) ⇒ (T, t)
+    ↔ S = T ∧ s = t :=
+  by
+    apply Iff.intro
+    . intro h
+      cases h
+      . cases hS
+      . simp
+      . simp
+    . aesop (add unsafe [SmallStep.seq_skip])
+
 @[simp] theorem SmallStep_seq_Iff {S T s Ut} :
     (S; T, s) ⇒ Ut ↔
     (∃S' t, (S, s) ⇒ (S', t) ∧ Ut = (S'; T, t))
-    ∨ (S = Stmt.skip ∧ Ut = (T, s)) :=
+    ∨ (S = Stmt.skip ∧ Ut = (T, s))
+    ∨ (T = Stmt.skip ∧ Ut = (S, s))
+    :=
   by
     apply Iff.intro
-    { intro hST
-      cases hST with
-      | seq_step _ S' _ _ s' hS =>
-        apply Or.intro_left
-        apply Exists.intro S'
-        apply Exists.intro s'
-        aesop
-      | seq_skip =>
-        apply Or.intro_right
-        aesop }
-    {
-      intro hor
-      cases hor with
-      | inl hex =>
-        cases hex with
-        | intro S' hex' =>
-          cases hex' with
-          | intro s' hand =>
-            cases hand with
-            | intro hS hUt =>
-              rw [hUt]
-              apply SmallStep.seq_step
-              assumption
-      | inr hand =>
-        cases hand with
-        | intro hS hUt =>
-          rw [hS, hUt]
-          apply SmallStep.seq_skip }
+    . intro hST
+      cases hST
+      all_goals aesop
+    . intro hor
+      cases hor
+      . aesop (add unsafe [SmallStep.seq_step])
+      . aesop (add unsafe [SmallStep.seq_skip2])
 
 @[simp] theorem SmallStep_if_Iff {B S T s Us} :
     (Stmt.ifThenElse B S T, s) ⇒ Us ↔
@@ -511,23 +519,9 @@ theorem SmallStep_skip {S s t} :
   by
     apply Iff.intro
     { intro h
-      cases h with
-      | if_true _ _ _ _ hB  => aesop
-      | if_false _ _ _ _ hB => aesop }
+      cases h <;> aesop }
     { intro hor
-      cases hor with
-      | inl hand =>
-        cases hand with
-        | intro hB hUs =>
-          rw [hUs]
-          apply SmallStep.if_true
-          assumption
-      | inr hand =>
-        cases hand with
-        | intro hB hUs =>
-          rw [hUs]
-          apply SmallStep.if_false
-          assumption }
+      cases hor <;> aesop (add unsafe [SmallStep.if_true, SmallStep.if_false]) }
 
 @[simp]
 theorem SmallStep_assign_Iff {x a s S t} :
@@ -604,22 +598,22 @@ theorem SmallStep_final (S s) :
     induction S with
     | skip => simp
     | assign x a => simp
-    | seq S T ihS ihT => by_cases (S = Stmt.skip) <;> aesop
+    | seq S T ihS ihT => by_cases (S = Stmt.skip) <;> by_cases (T = Stmt.skip) <;> aesop
     | ifThenElse B S T ihS ihT => by_cases (B s) <;> aesop
     | whileDo B S ih => aesop
 
-theorem SmallStep_deterministic {Ss Ll Rr}
-      (hl : Ss ⇒ Ll) (hr : Ss ⇒ Rr) :
-    Ll = Rr :=
-  by
-    induction hl generalizing Rr
-    any_goals (solve | simp_all)
-    case assign => aesop
-    case seq_step =>
-      cases hr
-      . have := hS_ih hS_1
-        simp_all
-      . simp_all
+-- theorem SmallStep_deterministic {Ss Ll Rr}
+--       (hl : Ss ⇒ Ll) (hr : Ss ⇒ Rr) :
+--     Ll = Rr :=
+--   by
+--     induction hl generalizing Rr
+--     any_goals (solve | simp_all)
+--     case assign => aesop
+--     case seq_step =>
+--       cases hr
+--       . have := hS_ih hS_1
+--         simp_all
+--       . simp_all
 
 /- ### Equivalence of the Big-Step and the Small-Step Semantics (**optional**)
 
@@ -630,9 +624,9 @@ small-step semantics:
 
 Its proof, given below, is beyond the scope of this course. -/
 
-theorem RTC_SmallStep_seq {S T s u}
-      (h : (S, s) ⇒* (Stmt.skip, u)) :
-    (S; T, s) ⇒* (Stmt.skip; T, u) :=
+theorem RTC_SmallStep_seq {S B T s u}
+      (h : (S, s) ⇒* (B, u)) :
+    (S; T, s) ⇒* (B; T, u) :=
   by
     apply RTC.lift (fun Ss ↦ (Prod.fst Ss; T, Prod.snd Ss)) _ h
     intro Ss Ss' hrtc
@@ -642,6 +636,26 @@ theorem RTC_SmallStep_seq {S T s u}
       | mk S' s' =>
         apply SmallStep.seq_step
         assumption
+
+theorem SmallStep_confluent {Ss Ll Rr}
+      (hl : Ss ⇒ Ll) (hr : Ss ⇒ Rr) :
+    ∃Tt, Ll ⇒* Tt ∧ Rr ⇒* Tt := by
+  induction hl generalizing Rr
+  -- Deterministic cases: only one rule applies, so Ll = Rr.
+  any_goals (
+    cases hr
+    any_goals (solve | aesop (add safe [RTC.refl]))
+  )
+  case seq_step.seq_step =>
+    obtain ⟨⟨T', t⟩, hL, hR⟩ := hS_ih hS_1
+    exists (T'; T, t)
+    exact ⟨RTC_SmallStep_seq hL, RTC_SmallStep_seq hR⟩
+  case seq_step.seq_skip2 =>
+    exists (S', s')
+    exact ⟨RTC.single (SmallStep.seq_skip2 S' s'), RTC.single hS⟩
+  case seq_skip2.seq_step =>
+    exists (S', s')
+    exact ⟨RTC.single hS, RTC.single (SmallStep.seq_skip2 S' s')⟩
 
 theorem RTC_SmallStep_of_BigStep {Ss t} (hS : Ss ⇓ t) :
     Ss ⇒* (Stmt.skip, t) :=
@@ -693,9 +707,10 @@ theorem BigStep_of_SmallStep_of_BigStep {Ss₀ Ss₁ s₂}
     | assign x a s               => simp
     | seq_step S S' T s s' hS ih => aesop
     | seq_skip T s               => simp
+    | seq_skip2 T s              => simp
     | if_true B S T s hB         => aesop
     | if_false B S T s hB        => aesop
-    | whileDo B S s              => aesop
+    | whileDo B S s              => aesop (add simp [BigStep_while_true_Iff])
 
 theorem BigStep_of_RTC_SmallStep {Ss t} :
     Ss ⇒* (Stmt.skip, t) → Ss ⇓ t :=
