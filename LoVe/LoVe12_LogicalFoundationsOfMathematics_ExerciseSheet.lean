@@ -87,4 +87,45 @@ theorem int.neg_neg (a : Int) :
     Int.neg (Int.neg a) = a :=
   sorry
 
+
+/- ## Question 3: Multisets as Quotients
+
+We can encode finite multisets (bags) as lists quotiented by permutation:
+two lists represent the same multiset if one is a permutation of the other.
+
+3.1. Define the setoid and quotient type. -/
+
+instance MSet.Setoid (α : Type) : Setoid (List α) :=
+  { r := List.Perm
+    iseqv :=
+      { refl := List.Perm.refl
+        symm := List.Perm.symm
+        trans := List.Perm.trans } }
+
+def MSet (α : Type) : Type :=
+  Quotient (MSet.Setoid α)
+
+/- 3.2. Define multiset union as list concatenation on representatives.
+You must show this is well defined with respect to permutations. -/
+
+-- this will be helpful
+#check List.Perm.append
+
+def MSet.union {α : Type} : MSet α → MSet α → MSet α :=
+  Quotient.lift₂
+    (fun xs ys : List α ↦ (⟦xs ++ ys⟧ : MSet α))
+    (by
+       intro xs₁ xs₂ ys₁ ys₂ hxs hys
+       -- You'll probably need to apply quotient soundess here.
+       sorry
+       )
+
+/- 3.3. Prove the computation rule for concrete representatives. -/
+
+theorem MSet.union_Eq {α : Type} (xs ys : List α) :
+    MSet.union (⟦xs⟧ : MSet α) (⟦ys⟧ : MSet α) =
+    (⟦xs ++ ys⟧ : MSet α) :=
+  by
+    sorry
+
 end LoVe
